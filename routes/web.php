@@ -11,6 +11,7 @@ Route::get('/', function () {
 // Rotas para importação de transações bancárias (normal)
 Route::get('/import/transactions', [TransactionController::class, 'importForm'])->name('import.transactions.form');
 Route::post('/import/transactions', [TransactionController::class, 'import'])->name('transactions.import');
+Route::get('/transactions/exist', [TransactionController::class, 'checkExistence'])->name('transactions.exist');
 
 // Rotas para importação de transações de cartão de crédito
 Route::get('/import/credit-card', [CreditCardTransactionController::class, 'importForm'])->name('import.credit_card.form');

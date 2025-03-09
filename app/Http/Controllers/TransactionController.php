@@ -24,12 +24,33 @@ class TransactionController extends Controller
         $request->validate([
             'file'       => 'required|file|mimes:csv,txt',
             'bank'       => 'required|string|in:bancodobrasil,xp,nubank',
-            'competence' => 'required|date_format:Y-m'
+            'competence' => 'required|date_format:Y-m',
         ]);
 
         $bank       = $request->input('bank');
         $competence = $request->input('competence'); // ex: "2025-02"
+        $overwrite  = $request->input('overwrite', false);
         $file       = $request->file('file');
+
+        // Verifica se já existem registros para essa competência e banco
+        $exists = Transaction::where('competence', $competence)
+            ->where('bank', $bank)
+            ->exists();
+
+        if ($exists && !$overwrite) {
+            // Se existir e o usuário não confirmou sobrescrever, retorne com erro
+            return redirect()->back()->withErrors([
+                'overwrite' => 'Já existem registros para essa competência e banco. Marque a opção "Sobrescrever" se deseja substituí-los.'
+            ]);
+        }
+
+        // Se o usuário confirmou sobrescrever, apaga os registros existentes
+        if ($exists && $overwrite) {
+            Transaction::where('competence', $competence)
+                ->where('bank', $bank)
+                ->delete();
+        }
+
         $dataToInsert = [];
 
         if ($bank === 'xp') {
@@ -165,7 +186,7 @@ class TransactionController extends Controller
                 } catch (\Exception $e) {
                     $date = now();
                 }
-                $amount = (float) $record['Valor'];
+                $amount = (float)$record['Valor'];
 
                 $description = trim($record['Descrição']);
 
@@ -190,4 +211,15 @@ class TransactionController extends Controller
 
         return redirect()->back()->with('success', 'Transações importadas com sucesso!');
     }
+
+    public function checkExistence(Request $request)
+    {
+        $bank = $request->input('bank');
+        $competence = $request->input('competence');
+        $exists = Transaction::where('bank', $bank)
+                    ->where('competence', $competence)
+                    ->exists();
+        return response()->json(['exists' => $exists]);
+    }
+    
 }
