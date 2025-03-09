@@ -21,7 +21,7 @@
                 </div>
             @endif
 
-            <form action="{{ route('import.credit_card') }}" method="post" enctype="multipart/form-data">
+            <form id="importForm" action="{{ route('import.credit_card') }}" method="post" enctype="multipart/form-data">
                 @csrf
 
                 <div class="mb-3">
@@ -53,4 +53,37 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.getElementById('importForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = this;
+            const bank = document.getElementById('bank').value;
+            const competence = document.getElementById('competence').value;
+            const url = "{{ route('credit_card_transactions.exist') }}" + "?bank=" + encodeURIComponent(bank) + "&competence=" + encodeURIComponent(competence);
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if(data.exists) {
+                    if(confirm("Já existem registros para essa competência e banco. Deseja sobrescrever?")) {
+                        // Adiciona um input hidden para sobrescrever
+                        const hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'overwrite';
+                        hidden.value = 'true';
+                        form.appendChild(hidden);
+                        form.submit();
+                    } else {
+                        return;
+                    }
+                } else {
+                    form.submit();
+                }
+            } catch(error) {
+                console.error("Erro na verificação:", error);
+                form.submit(); // Em caso de erro, envia o formulário normalmente
+            }
+        });
+    </script>
 @endsection

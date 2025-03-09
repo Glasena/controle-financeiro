@@ -16,3 +16,4 @@ Route::get('/transactions/exist', [TransactionController::class, 'checkExistence
 // Rotas para importação de transações de cartão de crédito
 Route::get('/import/credit-card', [CreditCardTransactionController::class, 'importForm'])->name('import.credit_card.form');
 Route::post('/import/credit-card', [CreditCardTransactionController::class, 'import'])->name('import.credit_card');
+Route::get('/credit-card-transactions/exist', [CreditCardTransactionController::class, 'checkExistence'])->name('credit_card_transactions.exist');

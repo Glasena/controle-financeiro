@@ -26,11 +26,29 @@ class CreditCardTransactionController extends Controller
 
         $bank       = $request->input('bank');
         $competence = $request->input('competence'); // formato "YYYY-MM"
+        $overwrite  = $request->input('overwrite', false);
         $file       = $request->file('file');
         $dataToInsert = [];
 
+        // Verifica se já existem registros para essa competência e banco (credit_card_name)
+        $exists = CreditCardTransaction::where('competence', $competence)
+                    ->where('credit_card_name', $bank)
+                    ->exists();
+
+        if ($exists && !$overwrite) {
+            return redirect()->back()->withErrors([
+                'overwrite' => 'Já existem registros para essa competência e banco. Confirme a sobrescrita.'
+            ]);
+        }
+
+        if ($exists && $overwrite) {
+            CreditCardTransaction::where('competence', $competence)
+                ->where('credit_card_name', $bank)
+                ->delete();
+        }
+
         if ($bank === 'xp') {
-            // Processamento para CSV da XP: delimitador ";", colunas: Data, Descricao, Valor, Saldo
+            // Processamento para CSV da XP: delimitador ";" e colunas: Data, Descricao, Valor, Saldo
             $delimiter = ';';
             $handle = fopen($file->getRealPath(), 'r');
             if ($handle === false) {
@@ -81,10 +99,9 @@ class CreditCardTransactionController extends Controller
             $text = $pdf->getText();
             $lines = preg_split('/\r\n|\r|\n/', $text);
 
-            // Supondo que as transações estejam em linhas que iniciam com data no formato "dd/mm"
             foreach ($lines as $line) {
                 $line = preg_replace('/\s+/', ' ', $line);
-                // Regex: captura a data, descrição, informações opcionais de parcela e valor.
+                // Regex: captura a data, descrição, opcionalmente parcela e valor.
                 if (!preg_match('/^(\d{2}\/\d{2})\s+(.*?)(?:\s+Parcela\s+(\d+)\s*\/\s*(\d+))?\s+(-?R\$[\s-]*[\d\.,]+)/i', $line, $matches)) {
                     continue;
                 }
@@ -125,7 +142,6 @@ class CreditCardTransactionController extends Controller
             $text = $pdf->getText();
             $lines = preg_split('/\r\n|\r|\n/', $text);
 
-            // Mapeamento de meses
             $monthMap = [
                 'JAN' => '01',
                 'FEV' => '02',
@@ -143,15 +159,9 @@ class CreditCardTransactionController extends Controller
 
             foreach ($lines as $line) {
                 $line = preg_replace('/\s+/', ' ', $line);
-                // Processa apenas linhas que começam com data (ex.: "04 JAN")
                 if (!preg_match('/^\d{2}\s+[A-Z]{3}/', $line)) {
                     continue;
                 }
-                // Regex para capturar:
-                // Group 1: data (ex.: "04 JAN")
-                // Group 2: descrição
-                // Group 3 e 4 (opcional): parcela (ex.: "3" e "3")
-                // Group 5: valor (com sinal, se houver)
                 if (preg_match('/^(\d{2}\s+[A-Z]{3})\s+(.*?)(?:\s+Parcela\s+(\d+)\s*\/\s*(\d+))?\s+(-?R\$[\s-]*[\d\.,]+)\s*$/i', $line, $matches)) {
                     $datePart = $matches[1];
                     $parts = explode(' ', $datePart);
@@ -198,4 +208,16 @@ class CreditCardTransactionController extends Controller
 
         return redirect()->back()->with('success', 'Transações de cartão importadas com sucesso!');
     }
+
+    public function checkExistence(Request $request)
+    {
+        $bank = $request->input('bank');
+        $competence = $request->input('competence');
+        $exists = \App\Models\CreditCardTransaction::where('competence', $competence)
+                    ->where('credit_card_name', $bank)
+                    ->exists();
+        return response()->json(['exists' => $exists]);
+    }
+    
+
 }
